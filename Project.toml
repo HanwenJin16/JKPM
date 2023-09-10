@@ -2,3 +2,7 @@ name = "JKPM"
 uuid = "bcc2d196-fe81-48b5-b473-59f85249665c"
 authors = ["HanwenJin16 <HJ1316@imperial.ac.uk>"]
 version = "0.1.0"
+
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SparseMatricesCSR="a0a7dd2c-ebf4-11e9-1f05-cf50bc540ca1"
