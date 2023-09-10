@@ -7,7 +7,8 @@ export Atoms
 export NeighborList
 export bulk
 export Parameters
-export Hamiltonian,dot_product,dot
+export add_Hopping_Parameters!, extract_Hopping_Parameters!
+export Hamiltonian,dot_product!,dot!
 export ConstructHamiltonian
 using LinearAlgebra
 using SparseMatricesCSR
@@ -172,7 +173,7 @@ end
 function Parameters(;kwargs...)
     return PyParameters(;kwargs...)
 end
-function extract_Parameters!(Parameters::PyObject,seedname::String)
+function extract_Hopping_Parameters!(Parameters::PyObject,seedname::String)
     ans=[]
     suffixes=["ss_sig1","pp_sig1","pp_pi1","dd_sig1","dd_pi1","dd_del1","sp_sig1","sd_sig1","pd_sig1","pd_pi1",
     "a_ss_sig1","a_pp_sig1","a_pp_pi1","a_dd_sig1","a_dd_pi1","a_dd_del1","a_sp_sig1","a_sd_sig1","a_pd_sig1","a_pd_pi1",
@@ -183,15 +184,30 @@ function extract_Parameters!(Parameters::PyObject,seedname::String)
     end 
     return ans
 end
-function add_parameters!(Parameters::PyObject,seedname::String,values)
+function add_Hopping_Parameters!(Parameters::PyObject,seedname::String,values::Vector{Float64})
     suffixes=["ss_sig1","pp_sig1","pp_pi1","dd_sig1","dd_pi1","dd_del1","sp_sig1","sd_sig1","pd_sig1","pd_pi1",
     "a_ss_sig1","a_pp_sig1","a_pp_pi1","a_dd_sig1","a_dd_pi1","a_dd_del1","a_sp_sig1","a_sd_sig1","a_pd_sig1","a_pd_pi1",
     "ss_sig2","pp_sig2","pp_pi2","dd_sig2","dd_pi2","dd_del2","sp_sig2","sd_sig2","pd_sig2","pd_pi2",
     "a_ss_sig2","a_pp_sig2","a_pp_pi2","a_dd_sig2","a_dd_pi2","a_dd_del2","a_sp_sig2","a_sd_sig2","a_pd_sig2","a_pd_pi2",]
     for i=1:40
-        Parameters.add(seedname*"_"*suffixes,values[i])
+        Parameters.add(seedname*"_"*suffixes[i],values[i])
     end
 end
+function extract_Onsite_Parameters!(Parameters::PyObject,seedname::String)
+    suffixes=["Es","Ed","Ep"]
+    ans=[]
+    for i=1:3
+        push!(ans,Parameters.valuesdict()[seedname*"_"*suffixes[i]])
+    end 
+    return ans
+end
+function add_Onsite_Parameters!(Parameters::PyObject,seedname::String)
+    suffixes=["Es","Ed","Ep"]
+    for i=1:3 
+        Parameters.add(seedname*"_"*suffixes[i])
+    end 
+end
+
 struct Hamiltonian
     #=
     Hlist: a list of each Hamiltonian, if we partition the original graph to N subgraph,
@@ -209,7 +225,7 @@ end
 function dot_product!(H::SparseMatrixCSR{Float64, Int}, v::Vector{Float64})
     return H * v
 end
-function dot(H::Hamiltonian, v::Vector{Float64})::Vector{Float64}
+function dot!(H::Hamiltonian, v::Vector{Float64})::Vector{Float64}
     # Extract sub-vectors based on the shape of sub-Hamiltonians
     sub_vectors = Vector{Vector{Float64}}()
     #=
@@ -245,7 +261,7 @@ function compute_subgraph_hamiltonian(atoms, nl, start_idx::Int, end_idx::Int)
             # Exclude interactions between different subgraphs
             if start_idx <= neighbor <= end_idx
                 R = atoms.positions[neighbor, :] - atoms.positions[i, :]
-                V_matrix = getV(R)
+                V_matrix = getV(R)#Need updating the parameters and atoms. 
                 for p in 1:9
                     for q in 1:9
                         push!(rows, (i-start_idx)*9 + p)
