@@ -6,7 +6,7 @@ export Vr_exponential_model
 export Atoms
 export NeighborList
 export bulk
-export ConstructHamiltonian
+export Parameters
 export Hamiltonian,dot_product,dot
 export ConstructHamiltonian
 using LinearAlgebra
@@ -14,6 +14,7 @@ using SparseMatricesCSR
 using Metis
 using StatsBase
 pyase = pyimport("ase")
+lmfit=pyimport("lmfit")
 py"""
 from ase import neighborlist
 from ase.build import bulk
@@ -21,6 +22,7 @@ from ase.build import bulk
 const Pyneighborlist=py"neighborlist"
 const PyAtom=pyase.Atoms
 const Pybulk=py"bulk"
+const PyParameters=lmfit.Parameters
 function Atoms(;kwargs...)
     return PyAtom(;kwargs...)
 end
@@ -166,6 +168,29 @@ function Vr_exponential_model(
     Vr[5,7]=(m*(n^2-(l^2+m^2)/2)*pd_sig-3^0.5*m*n^2*pd_pi) #3z^2-r^2->y
     Vr[5,8]=(n*(n^2-(l^2+m^2)/2)*pd_sig+3^0.5*n*(l^2+m^2)*pd_pi)#3z^2-r^2->z
     return Vr
+end
+function Parameters(;kwargs...)
+    return PyParameters(;kwargs...)
+end
+function extract_Parameters!(Parameters::PyObject,seedname::String)
+    ans=[]
+    suffixes=["ss_sig1","pp_sig1","pp_pi1","dd_sig1","dd_pi1","dd_del1","sp_sig1","sd_sig1","pd_sig1","pd_pi1",
+    "a_ss_sig1","a_pp_sig1","a_pp_pi1","a_dd_sig1","a_dd_pi1","a_dd_del1","a_sp_sig1","a_sd_sig1","a_pd_sig1","a_pd_pi1",
+    "ss_sig2","pp_sig2","pp_pi2","dd_sig2","dd_pi2","dd_del2","sp_sig2","sd_sig2","pd_sig2","pd_pi2",
+    "a_ss_sig2","a_pp_sig2","a_pp_pi2","a_dd_sig2","a_dd_pi2","a_dd_del2","a_sp_sig2","a_sd_sig2","a_pd_sig2","a_pd_pi2",]
+    for suffix in suffixes
+        push!(ans,Parameters.valuesdict()[seedname*"_"*suffix])
+    end 
+    return ans
+end
+function add_parameters!(Parameters::PyObject,seedname::String,values)
+    suffixes=["ss_sig1","pp_sig1","pp_pi1","dd_sig1","dd_pi1","dd_del1","sp_sig1","sd_sig1","pd_sig1","pd_pi1",
+    "a_ss_sig1","a_pp_sig1","a_pp_pi1","a_dd_sig1","a_dd_pi1","a_dd_del1","a_sp_sig1","a_sd_sig1","a_pd_sig1","a_pd_pi1",
+    "ss_sig2","pp_sig2","pp_pi2","dd_sig2","dd_pi2","dd_del2","sp_sig2","sd_sig2","pd_sig2","pd_pi2",
+    "a_ss_sig2","a_pp_sig2","a_pp_pi2","a_dd_sig2","a_dd_pi2","a_dd_del2","a_sp_sig2","a_sd_sig2","a_pd_sig2","a_pd_pi2",]
+    for i=1:40
+        Parameters.add(seedname*"_"*suffixes,values[i])
+    end
 end
 struct Hamiltonian
     #=
