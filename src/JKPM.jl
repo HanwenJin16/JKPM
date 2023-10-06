@@ -2,6 +2,10 @@ module JKPM
 using LinearAlgebra
 using Metis
 using PyCall
+using LinearAlgebra
+using SparseMatricesCSR
+using Metis
+using StatsBase
 export Vr_exponential_model
 export Atoms
 export NeighborList
@@ -10,10 +14,6 @@ export Parameters
 export add_Hopping_Parameters!, extract_Hopping_Parameters!
 export Hamiltonian,dot_product!,dot!
 export ConstructHamiltonian
-using LinearAlgebra
-using SparseMatricesCSR
-using Metis
-using StatsBase
 pyase = pyimport("ase")
 lmfit=pyimport("lmfit")
 py"""
@@ -170,8 +170,12 @@ function Vr_exponential_model(
     Vr[5,8]=(n*(n^2-(l^2+m^2)/2)*pd_sig+3^0.5*n*(l^2+m^2)*pd_pi)#3z^2-r^2->z
     return Vr
 end
-function Parameters(;kwargs...)
-    return PyParameters(;kwargs...)
+function Parameters()
+    py"""from lmfit import Parameters
+    ans=Parameters()
+    ans.add("shit",114514)
+    """
+    return 0
 end
 function extract_Hopping_Parameters!(Parameters::PyObject,seedname::String)
     ans=[]
@@ -207,7 +211,6 @@ function add_Onsite_Parameters!(Parameters::PyObject,seedname::String)
         Parameters.add(seedname*"_"*suffixes[i])
     end 
 end
-
 struct Hamiltonian
     #=
     Hlist: a list of each Hamiltonian, if we partition the original graph to N subgraph,
@@ -251,7 +254,7 @@ function dot!(H::Hamiltonian, v::Vector{Float64})::Vector{Float64}
     #map(fetch, tasks)  # Wait for all tasks to complete
     return hopping_result
 end
-function compute_subgraph_hamiltonian(atoms, nl, start_idx::Int, end_idx::Int)
+function compute_subgraph_hamiltonian(atoms, nl, start_idx::Int, end_idx::Int,getV::function,getV_args::list)
     rows, cols, values = Int[], Int[], Float64[]
 
     for i in start_idx:end_idx
@@ -261,7 +264,7 @@ function compute_subgraph_hamiltonian(atoms, nl, start_idx::Int, end_idx::Int)
             # Exclude interactions between different subgraphs
             if start_idx <= neighbor <= end_idx
                 R = atoms.positions[neighbor, :] - atoms.positions[i, :]
-                V_matrix = getV(R)#Need updating the parameters and atoms. 
+                V_matrix = getV(R,getV_args)#Need updating the parameters and atoms. 
                 for p in 1:9
                     for q in 1:9
                         push!(rows, (i-start_idx)*9 + p)
@@ -306,7 +309,7 @@ function compute_inter_subgraph_hamiltonian(atoms, nl, Hsizes)
 
     return sparse(rows, cols, values)
 end
-function ConstructHamiltonian(atoms::PyObject,cutoffs,TB_params::Dict;ncores=4)
+function ConstructHamiltonian(atoms::PyObject,cutoffs,TB_params::Dict,getV,getV_args;ncores=4)
     #setup the neighborlist 
     nl=Neighborlist(cutoffs,skin=0,self_interaction=false,bothways=true)#Need to set the skin etc. 
     nl.update(atoms)
@@ -342,7 +345,7 @@ function ConstructHamiltonian(atoms::PyObject,cutoffs,TB_params::Dict;ncores=4)
     #now compute the list of Hamiltonian 
     Hlist=[]
     for k=1:lastindex(start_list)
-        push!(Hlist,compute_subgraph_hamiltonian!(new_atoms,nl,start_list[k],end_list[k]))
+        push!(Hlist,compute_subgraph_hamiltonian!(new_atoms,nl,start_list[k],end_list[k],getV,getV_args))
     end
     push!(Hlist,compute_inter_subgraph_hamiltonian(new_atoms,nl,end_list[end]))
     return Hamiltonian(Hlist,start_list,end_list)
