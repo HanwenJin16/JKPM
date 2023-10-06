@@ -224,6 +224,7 @@ struct Hamiltonian
     Hlist::Vector{SparseMatrixCSR{Float64, Int}}
     start_list::Vector{Int}
     end_list::Vector{Int}
+    permutation::Vector
 end
 function dot_product!(H::SparseMatrixCSR{Float64, Int}, v::Vector{Float64})
     return H * v
@@ -254,7 +255,7 @@ function dot!(H::Hamiltonian, v::Vector{Float64})::Vector{Float64}
     #map(fetch, tasks)  # Wait for all tasks to complete
     return hopping_result
 end
-function compute_subgraph_hamiltonian(atoms, nl, start_idx::Int, end_idx::Int,getV::function,getV_args::list)
+function compute_subgraph_hamiltonian(atoms, nl, start_idx::Int, end_idx::Int,getV::function,getV_args::Vector)
     rows, cols, values = Int[], Int[], Float64[]
 
     for i in start_idx:end_idx
@@ -309,7 +310,7 @@ function compute_inter_subgraph_hamiltonian(atoms, nl, Hsizes)
 
     return sparse(rows, cols, values)
 end
-function ConstructHamiltonian(atoms::PyObject,cutoffs,TB_params::Dict,getV,getV_args;ncores=4)
+function ConstructHamiltonian(atoms::PyObject,cutoffs,TB_params::Dict,getV::function,getV_args::Vector;ncores=4)
     #setup the neighborlist 
     nl=Neighborlist(cutoffs,skin=0,self_interaction=false,bothways=true)#Need to set the skin etc. 
     nl.update(atoms)
@@ -348,7 +349,8 @@ function ConstructHamiltonian(atoms::PyObject,cutoffs,TB_params::Dict,getV,getV_
         push!(Hlist,compute_subgraph_hamiltonian!(new_atoms,nl,start_list[k],end_list[k],getV,getV_args))
     end
     push!(Hlist,compute_inter_subgraph_hamiltonian(new_atoms,nl,end_list[end]))
-    return Hamiltonian(Hlist,start_list,end_list)
+    #At this stage we do not care about permutation, but I will add it one day. 
+    return Hamiltonian(Hlist,start_list,end_list,[])
 end
 end
 
